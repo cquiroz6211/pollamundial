@@ -37,44 +37,50 @@ export default function Home() {
         return
       }
 
-      // Create or get user
-      const { data: user, error: userError } = await supabase
+      // Get or create user — check existence first to avoid duplicates
+      const { data: existingUser, error: findError } = await supabase
         .from('users')
-        .insert({
-          name: name.trim(),
-          avatar: generateAvatar(name.trim()),
-          group_id: groups.id,
-        })
-        .select()
-        .single()
+        .select('*')
+        .eq('name', name.trim())
+        .eq('group_id', groups.id)
+        .limit(1)
 
-      if (userError) {
-        // User might already exist — try to find by name + group
-        const { data: existingUsers, error: findError } = await supabase
+      if (findError) {
+        setError('Error de conexión. Intenta de nuevo.')
+        setLoading(false)
+        return
+      }
+
+      let user: { id: string; name: string; group_id: string } | null = null
+
+      if (existingUser && existingUser.length > 0) {
+        // User already exists — reuse it
+        user = existingUser[0]
+      } else {
+        // Create new user
+        const { data: newUser, error: insertError } = await supabase
           .from('users')
-          .select('*')
-          .eq('name', name.trim())
-          .eq('group_id', groups.id)
+          .insert({
+            name: name.trim(),
+            avatar: generateAvatar(name.trim()),
+            group_id: groups.id,
+          })
+          .select()
+          .single()
 
-        if (findError || !existingUsers || existingUsers.length === 0) {
-          setError('Error al entrar. Intenta con otro nombre.')
+        if (insertError || !newUser) {
+          setError('Error al crear tu usuario. Intenta con otro nombre.')
           setLoading(false)
           return
         }
 
-        // Use first match (handles duplicate names gracefully)
-        const existingUser = existingUsers[0]
-
-        // Save session for existing user
-        localStorage.setItem('polla_user_id', existingUser.id)
-        localStorage.setItem('polla_group_id', existingUser.group_id)
-        localStorage.setItem('polla_user_name', existingUser.name)
-      } else {
-        // Save session for new user
-        localStorage.setItem('polla_user_id', user.id)
-        localStorage.setItem('polla_group_id', user.group_id)
-        localStorage.setItem('polla_user_name', user.name)
+        user = newUser
       }
+
+      // Save session
+      localStorage.setItem('polla_user_id', user.id)
+      localStorage.setItem('polla_group_id', user.group_id)
+      localStorage.setItem('polla_user_name', user.name)
 
       router.push('/dashboard')
     } catch (err) {
@@ -127,21 +133,42 @@ export default function Home() {
         return
       }
 
-      // Create admin user
-      const { data: user, error: userError } = await supabase
+      // Get or create admin user
+      const { data: existingUser, error: findError } = await supabase
         .from('users')
-        .insert({
-          name: name.trim(),
-          avatar: generateAvatar(name.trim()),
-          group_id: group.id,
-        })
-        .select()
-        .single()
+        .select('*')
+        .eq('name', name.trim())
+        .eq('group_id', group.id)
+        .limit(1)
 
-      if (userError) {
-        setError('Error al crear tu usuario')
+      if (findError) {
+        setError('Error de conexión. Intenta de nuevo.')
         setLoading(false)
         return
+      }
+
+      let user: { id: string; name: string; group_id: string } | null = null
+
+      if (existingUser && existingUser.length > 0) {
+        user = existingUser[0]
+      } else {
+        const { data: newUser, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            name: name.trim(),
+            avatar: generateAvatar(name.trim()),
+            group_id: group.id,
+          })
+          .select()
+          .single()
+
+        if (insertError || !newUser) {
+          setError('Error al crear tu usuario. Intenta con otro nombre.')
+          setLoading(false)
+          return
+        }
+
+        user = newUser
       }
 
       // Save session
