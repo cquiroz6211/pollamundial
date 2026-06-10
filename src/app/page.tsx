@@ -51,36 +51,38 @@ export default function Home() {
         return
       }
 
-      let user: { id: string; name: string; group_id: string } | null = null
-
       if (existingUser && existingUser.length > 0) {
-        // User already exists — reuse it
-        user = existingUser[0]
-      } else {
-        // Create new user
-        const { data: newUser, error: insertError } = await supabase
-          .from('users')
-          .insert({
-            name: name.trim(),
-            avatar: generateAvatar(name.trim()),
-            group_id: groups.id,
-          })
-          .select()
-          .single()
-
-        if (insertError || !newUser) {
-          setError('Error al crear tu usuario. Intenta con otro nombre.')
-          setLoading(false)
-          return
-        }
-
-        user = newUser
+        // Save session for existing user
+        const user = existingUser[0]
+        localStorage.setItem('polla_user_id', user.id)
+        localStorage.setItem('polla_group_id', user.group_id)
+        localStorage.setItem('polla_user_name', user.name)
+        router.push('/dashboard')
+        setLoading(false)
+        return
       }
 
-      // Save session
-      localStorage.setItem('polla_user_id', user.id)
-      localStorage.setItem('polla_group_id', user.group_id)
-      localStorage.setItem('polla_user_name', user.name)
+      // Create new user
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({
+          name: name.trim(),
+          avatar: generateAvatar(name.trim()),
+          group_id: groups.id,
+        })
+        .select()
+        .single()
+
+      if (insertError || !newUser) {
+        setError('Error al crear tu usuario. Intenta con otro nombre.')
+        setLoading(false)
+        return
+      }
+
+      // Save session for new user
+      localStorage.setItem('polla_user_id', newUser.id)
+      localStorage.setItem('polla_group_id', newUser.group_id)
+      localStorage.setItem('polla_user_name', newUser.name)
 
       router.push('/dashboard')
     } catch (err) {
@@ -147,34 +149,37 @@ export default function Home() {
         return
       }
 
-      let user: { id: string; name: string; group_id: string } | null = null
-
       if (existingUser && existingUser.length > 0) {
-        user = existingUser[0]
-      } else {
-        const { data: newUser, error: insertError } = await supabase
-          .from('users')
-          .insert({
-            name: name.trim(),
-            avatar: generateAvatar(name.trim()),
-            group_id: group.id,
-          })
-          .select()
-          .single()
+        const user = existingUser[0]
+        localStorage.setItem('polla_user_id', user.id)
+        localStorage.setItem('polla_group_id', user.group_id)
+        localStorage.setItem('polla_user_name', user.name)
+        localStorage.setItem('polla_is_admin', 'true')
+        router.push('/dashboard')
+        setLoading(false)
+        return
+      }
 
-        if (insertError || !newUser) {
-          setError('Error al crear tu usuario. Intenta con otro nombre.')
-          setLoading(false)
-          return
-        }
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({
+          name: name.trim(),
+          avatar: generateAvatar(name.trim()),
+          group_id: group.id,
+        })
+        .select()
+        .single()
 
-        user = newUser
+      if (insertError || !newUser) {
+        setError('Error al crear tu usuario. Intenta con otro nombre.')
+        setLoading(false)
+        return
       }
 
       // Save session
-      localStorage.setItem('polla_user_id', user.id)
-      localStorage.setItem('polla_group_id', user.group_id)
-      localStorage.setItem('polla_user_name', user.name)
+      localStorage.setItem('polla_user_id', newUser.id)
+      localStorage.setItem('polla_group_id', newUser.group_id)
+      localStorage.setItem('polla_user_name', newUser.name)
       localStorage.setItem('polla_is_admin', 'true')
 
       router.push('/dashboard')
