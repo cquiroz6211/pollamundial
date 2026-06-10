@@ -22,29 +22,22 @@ export interface SupabaseClient {
 }
 
 export interface SupabaseTable {
-  select(columns?: string): SupabaseSelectBuilder
+  select(columns?: string): SupabaseQueryBuilder
   insert(record: Record<string, unknown>): SupabaseInsertBuilder
-  eq(column: string, value: unknown): SupabaseFilterBuilder
-  limit(n: number): SupabaseLimitBuilder
 }
 
-export interface SupabaseSelectBuilder {
-  select(columns?: string): SupabaseSelectBuilder
-  single(): Promise<SupabaseResult<SupabaseUser>>
-  limit(n: number): SupabaseLimitBuilder
+export interface SupabaseQueryBuilder {
+  eq(column: string, value: unknown): SupabaseQueryBuilder
+  limit(n: number): SupabaseQueryBuilder
+  select(columns?: string): Promise<SupabaseResult<SupabaseUser[]>>
 }
 
 export interface SupabaseInsertBuilder {
-  select(): SupabaseSelectBuilder
+  select(): SupabaseInsertSelectBuilder
+}
+
+export interface SupabaseInsertSelectBuilder {
   single(): Promise<SupabaseResult<SupabaseUser>>
-}
-
-export interface SupabaseFilterBuilder {
-  limit(n: number): SupabaseLimitBuilder
-}
-
-export interface SupabaseLimitBuilder {
-  select(columns?: string): SupabaseSelectBuilder
 }
 
 export function generateAvatar(name: string): string {
