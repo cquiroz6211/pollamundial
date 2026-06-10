@@ -1,5 +1,11 @@
 FROM node:20-alpine AS base
 
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+
 # 1. Instalar dependencias solo cuando sea necesario
 FROM base AS deps
 # Se recomienda libc6-compat para imágenes alpine
