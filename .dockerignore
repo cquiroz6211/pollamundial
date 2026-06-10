@@ -1,0 +1,30 @@
+# Dependencias y builds locales
+node_modules
+.next
+out
+build
+
+# Repositorio e historial
+.git
+.gitignore
+
+# Archivos de Docker
+Dockerfile
+.dockerignore
+
+# Secretos locales (las variables se pasan al contenedor en runtime)
+.env*.local
+.env
+
+# Herramientas de testeo y agentes
+.playwright-mcp
+.agents
+.gemini
+dogfood-output
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Documentación
+README.md
+docs
