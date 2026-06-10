@@ -4,6 +4,15 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
+function generateAvatar(name: string): string {
+  const initials = name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+  const hexColors = ['#22c55e','#3b82f6','#a855f7','#ef4444','#eab308','#ec4899','#6366f1','#14b8a6']
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  const color = hexColors[Math.abs(hash) % hexColors.length]
+  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${color}"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="40" font-family="Arial" font-weight="bold">${initials}</text></svg>`)}`
+}
+
 export default function Home() {
   const [name, setName] = useState('')
   const [groupCode, setGroupCode] = useState('')
@@ -12,11 +21,17 @@ export default function Home() {
   const router = useRouter()
   const supabase = createClient()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const saveSession = (user: any, isAdmin = false) => {
+    localStorage.setItem('polla_user_id', user.id)
+    localStorage.setItem('polla_group_id', user.group_id)
+    localStorage.setItem('polla_user_name', user.name)
+    if (isAdmin) localStorage.setItem('polla_is_admin', 'true')
+    router.push('/dashboard')
+  }
+
+  const handleLogin = async () => {
     setError('')
     setLoading(true)
-
     if (!name.trim() || !groupCode.trim()) {
       setError('Por favor completa todos los campos')
       setLoading(false)
@@ -24,12 +39,8 @@ export default function Home() {
     }
 
     try {
-      // Check if group exists
       const { data: groups, error: groupError } = await supabase
-        .from('groups')
-        .select('id')
-        .eq('code', groupCode.toUpperCase())
-        .single()
+        .from('groups').select('id').eq('code', groupCode.toUpperCase()).single()
 
       if (groupError || !groups) {
         setError('Código de grupo no encontrado')
@@ -37,54 +48,20 @@ export default function Home() {
         return
       }
 
-      // Get or create user — check existence first to avoid duplicates
       const { data: existingUser, error: findError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('name', name.trim())
-        .eq('group_id', groups.id)
-        .limit(1)
+        .from('users').select('*').eq('name', name.trim()).eq('group_id', groups.id).limit(1)
 
-      if (findError) {
-        setError('Error de conexión. Intenta de nuevo.')
-        setLoading(false)
-        return
-      }
-
+      if (findError) { setError('Error de conexión'); setLoading(false); return }
       if (existingUser && existingUser.length > 0) {
-        // Save session for existing user
-        const user = existingUser[0]
-        localStorage.setItem('polla_user_id', user.id)
-        localStorage.setItem('polla_group_id', user.group_id)
-        localStorage.setItem('polla_user_name', user.name)
-        router.push('/dashboard')
-        setLoading(false)
+        saveSession(existingUser[0])
         return
       }
 
-      // Create new user
       const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert({
-          name: name.trim(),
-          avatar: generateAvatar(name.trim()),
-          group_id: groups.id,
-        })
-        .select()
-        .single()
+        .from('users').insert({ name: name.trim(), avatar: generateAvatar(name.trim()), group_id: groups.id }).select().single()
 
-      if (insertError || !newUser) {
-        setError('Error al crear tu usuario. Intenta con otro nombre.')
-        setLoading(false)
-        return
-      }
-
-      // Save session for new user
-      localStorage.setItem('polla_user_id', newUser.id)
-      localStorage.setItem('polla_group_id', newUser.group_id)
-      localStorage.setItem('polla_user_name', newUser.name)
-
-      router.push('/dashboard')
+      if (insertError || !newUser) { setError('Error al crear tu usuario'); setLoading(false); return }
+      saveSession(newUser)
     } catch (err) {
       console.error('Error:', err)
       setError('Error de conexión. Intenta de nuevo.')
@@ -96,7 +73,6 @@ export default function Home() {
   const handleCreateGroup = async () => {
     setError('')
     setLoading(true)
-
     if (!name.trim() || !groupCode.trim()) {
       setError('Por favor completa todos los campos')
       setLoading(false)
@@ -105,13 +81,8 @@ export default function Home() {
 
     try {
       const groupCodeUpper = groupCode.toUpperCase()
-
-      // Check if group already exists
       const { data: existingGroup } = await supabase
-        .from('groups')
-        .select('id')
-        .eq('code', groupCodeUpper)
-        .single()
+        .from('groups').select('id').eq('code', groupCodeUpper).single()
 
       if (existingGroup) {
         setError('Este código de grupo ya existe. Usa otro o ingresa como participante.')
@@ -119,70 +90,25 @@ export default function Home() {
         return
       }
 
-      // Create group
       const { data: group, error: groupError } = await supabase
-        .from('groups')
-        .insert({
-          code: groupCodeUpper,
-          name: `${name.trim()} - Polla Mundial`,
-        })
-        .select()
-        .single()
+        .from('groups').insert({ code: groupCodeUpper, name: `${name.trim()} - Polla Mundial` }).select().single()
 
-      if (groupError) {
-        setError('Error al crear el grupo')
-        setLoading(false)
-        return
-      }
+      if (groupError) { setError('Error al crear el grupo'); setLoading(false); return }
 
-      // Get or create admin user
       const { data: existingUser, error: findError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('name', name.trim())
-        .eq('group_id', group.id)
-        .limit(1)
+        .from('users').select('*').eq('name', name.trim()).eq('group_id', group.id).limit(1)
 
-      if (findError) {
-        setError('Error de conexión. Intenta de nuevo.')
-        setLoading(false)
-        return
-      }
-
+      if (findError) { setError('Error de conexión'); setLoading(false); return }
       if (existingUser && existingUser.length > 0) {
-        const user = existingUser[0]
-        localStorage.setItem('polla_user_id', user.id)
-        localStorage.setItem('polla_group_id', user.group_id)
-        localStorage.setItem('polla_user_name', user.name)
-        localStorage.setItem('polla_is_admin', 'true')
-        router.push('/dashboard')
-        setLoading(false)
+        saveSession(existingUser[0], true)
         return
       }
 
       const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert({
-          name: name.trim(),
-          avatar: generateAvatar(name.trim()),
-          group_id: group.id,
-        })
-        .select()
-        .single()
+        .from('users').insert({ name: name.trim(), avatar: generateAvatar(name.trim()), group_id: group.id }).select().single()
 
-      if (insertError || !newUser) {
-        setError('Error al crear tu usuario. Intenta con otro nombre.')
-        setLoading(false)
-        return
-      }
-
-      // Save session
-      localStorage.setItem('polla_user_id', newUser.id)
-      localStorage.setItem('polla_group_id', newUser.group_id)
-      localStorage.setItem('polla_user_name', newUser.name)
-      localStorage.setItem('polla_is_admin', 'true')
-
-      router.push('/dashboard')
+      if (insertError || !newUser) { setError('Error al crear tu usuario'); setLoading(false); return }
+      saveSession(newUser, true)
     } catch (err) {
       console.error('Error:', err)
       setError('Error de conexión. Intenta de nuevo.')
@@ -193,25 +119,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-sports-bg select-none flex items-center justify-center p-4">
-      {/* Background glow effects - Stadium Lights */}
       <div className="absolute inset-0 z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-500/10 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-yellow-500/5 blur-[120px]" />
         <div className="absolute top-[30%] right-[10%] w-[300px] h-[300px] rounded-full bg-emerald-600/5 blur-[100px]" />
-        {/* Subtle grid pattern overlay */}
-        <div 
-          className="absolute inset-0 opacity-[0.02]" 
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
-            backgroundSize: '24px 24px'
-          }}
-        />
+        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`, backgroundSize: '24px 24px' }} />
       </div>
 
       <div className="relative z-10 w-full max-w-md my-8">
-        {/* Logo / Header */}
         <div className="text-center mb-8 animate-fade-in">
-          {/* Soccer ball icon with glowing outer ring */}
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-full mb-6 relative">
             <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-emerald-500 to-yellow-500 opacity-20 blur-md animate-pulse"></div>
             <div className="w-20 h-20 rounded-full bg-sports-card border border-emerald-500/30 flex items-center justify-center shadow-xl shadow-emerald-950/50">
@@ -223,9 +139,7 @@ export default function Home() {
           <h1 className="text-4xl font-display font-black tracking-tight mb-2 text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-200 to-yellow-400">
             Polla Mundial
           </h1>
-          <p className="text-emerald-400 text-sm font-semibold tracking-widest uppercase">
-            Copa Mundial FIFA 2026
-          </p>
+          <p className="text-emerald-400 text-sm font-semibold tracking-widest uppercase">Copa Mundial FIFA 2026</p>
           <div className="flex items-center justify-center gap-3 mt-3 opacity-60">
             <span className="h-[1px] w-8 bg-emerald-500/30"></span>
             <span className="text-[11px] font-medium tracking-wider text-slate-400">USA · CANADÁ · MÉXICO</span>
@@ -233,7 +147,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Form Card */}
         <div className="glass-card rounded-3xl p-8 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-emerald-500 via-yellow-500 to-emerald-500"></div>
           
@@ -244,18 +157,13 @@ export default function Home() {
             Ingresá tu código y demostrá tus dotes de DT
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={(e) => { e.preventDefault(); handleLogin() }} className="space-y-5">
             <div>
-              <label
-                htmlFor="name"
-                className="block text-[11px] font-bold tracking-wider uppercase text-emerald-400 mb-2"
-              >
+              <label htmlFor="name" className="block text-[11px] font-bold tracking-wider uppercase text-emerald-400 mb-2">
                 Nombre del Participante
               </label>
               <input
-                id="name"
-                type="text"
-                value={name}
+                id="name" type="text" value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ej: Leo Messi"
                 className="w-full px-4 py-3.5 rounded-xl glass-input text-sm outline-none font-medium"
@@ -264,16 +172,11 @@ export default function Home() {
             </div>
 
             <div>
-              <label
-                htmlFor="groupCode"
-                className="block text-[11px] font-bold tracking-wider uppercase text-emerald-400 mb-2"
-              >
+              <label htmlFor="groupCode" className="block text-[11px] font-bold tracking-wider uppercase text-emerald-400 mb-2">
                 Código del Grupo
               </label>
               <input
-                id="groupCode"
-                type="text"
-                value={groupCode}
+                id="groupCode" type="text" value={groupCode}
                 onChange={(e) => setGroupCode(e.target.value.toUpperCase())}
                 placeholder="Ej: FULBO-2026"
                 className="w-full px-4 py-3.5 rounded-xl glass-input text-sm outline-none font-mono tracking-wider font-bold"
@@ -291,22 +194,13 @@ export default function Home() {
             )}
 
             <button
-              type="submit"
-              disabled={loading}
+              type="submit" disabled={loading}
               className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 active:scale-[0.98] text-sports-bg font-bold py-4 rounded-xl transition-all duration-200 shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
             >
               {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-sports-bg border-t-transparent"></div>
-                  <span>Entrando...</span>
-                </>
+                <><div className="animate-spin rounded-full h-4 w-4 border-2 border-sports-bg border-t-transparent"></div><span>Entrando...</span></>
               ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                  <span>Ingresar a la Polla</span>
-                </>
+                <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg><span>Ingresar a la Polla</span></>
               )}
             </button>
           </form>
@@ -314,8 +208,7 @@ export default function Home() {
           <div className="mt-6 pt-6 border-t border-white/5 flex flex-col items-center">
             <p className="text-[11px] text-slate-500 uppercase tracking-widest mb-3">¿Querés armar tu propio torneo?</p>
             <button
-              onClick={handleCreateGroup}
-              disabled={loading}
+              onClick={handleCreateGroup} disabled={loading}
               className="w-full border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 active:scale-[0.98] font-bold py-3.5 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 text-xs uppercase tracking-wider"
             >
               Crear Nuevo Grupo
@@ -323,49 +216,15 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Footer info pill */}
         <div className="mt-8 text-center animate-fade-in">
           <div className="inline-flex items-center gap-2.5 bg-sports-card/40 backdrop-blur-sm rounded-full px-5 py-2.5 border border-white/5 shadow-md">
             <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
             </svg>
-            <p className="text-slate-400 text-xs font-semibold">
-              48 Equipos · 104 Partidos · 16 Sedes
-            </p>
+            <p className="text-slate-400 text-xs font-semibold">48 Equipos · 12 Grupos · 48 Sedes</p>
           </div>
         </div>
       </div>
     </div>
   )
-}
-
-function generateAvatar(name: string): string {
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-
-  const hexColors = [
-    '#22c55e',
-    '#3b82f6',
-    '#a855f7',
-    '#ef4444',
-    '#eab308',
-    '#ec4899',
-    '#6366f1',
-    '#14b8a6',
-  ]
-
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-
-  const color = hexColors[Math.abs(hash) % hexColors.length]
-
-  return `data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${color}"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="40" font-family="Arial" font-weight="bold">${initials}</text></svg>`
-  )}`
 }

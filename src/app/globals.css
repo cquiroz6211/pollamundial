@@ -2,7 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --sports-bg: #0a0f1a;
+    --sports-text-light: #f8fafc;
+    --sports-card: #111827;
+  }
+  
+  html {
+    background-color: var(--sports-bg);
+    color: var(--sports-text-light);
+  }
+}
+
 @layer utilities {
+  .bg-sports-bg {
+    background-color: var(--sports-bg);
+  }
+  
+  .text-sports-textLight {
+    color: var(--sports-text-light);
+  }
+  
+  .bg-sports-card {
+    background-color: var(--sports-card);
+  }
+  
+  .text-sports-bg {
+    color: var(--sports-bg);
+  }
+  
   .glass-card {
     background: rgba(15, 23, 34, 0.65);
     backdrop-filter: blur(12px);
@@ -22,9 +51,41 @@
     border-color: rgba(16, 185, 129, 0.5);
     box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
   }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  .animate-scale-up {
+    animation: scaleUp 0.2s ease-out;
+  }
+
+  .shadow-glow-green {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+  }
 }
 
-/* Custom Scrollbar for modern dashboards */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

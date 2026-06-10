@@ -49,14 +49,8 @@ export function generateAvatar(name: string): string {
     .slice(0, 2)
 
   const hexColors = [
-    '#22c55e',
-    '#3b82f6',
-    '#a855f7',
-    '#ef4444',
-    '#eab308',
-    '#ec4899',
-    '#6366f1',
-    '#14b8a6',
+    '#22c55e', '#3b82f6', '#a855f7', '#ef4444',
+    '#eab308', '#ec4899', '#6366f1', '#14b8a6',
   ]
 
   let hash = 0
@@ -76,10 +70,6 @@ export interface GetUserOrCreateResult {
   error: string | null
 }
 
-/**
- * Get existing user by name + group_id, or create a new one.
- * This is the core logic that prevents duplicate users.
- */
 export async function getUserOrCreate(
   supabase: SupabaseClient,
   name: string,
@@ -87,7 +77,6 @@ export async function getUserOrCreate(
 ): Promise<GetUserOrCreateResult> {
   const trimmedName = name.trim()
 
-  // Check if user already exists
   const { data: existingUsers, error: findError } = (await supabase
     .from('users')
     .select('*')
@@ -104,7 +93,6 @@ export async function getUserOrCreate(
     return { user: existingUsers[0] as User, error: null }
   }
 
-  // Create new user
   const { data: newUser, error: insertError } = await supabase
     .from('users')
     .insert({

@@ -1,11 +1,10 @@
--- First, drop existing duplicates so the UNIQUE constraint can be created
--- Keep the user with the oldest created_at (first registered), delete newer duplicates
-DELETE FROM users
-WHERE id NOT IN (
-  SELECT MIN(id::text)::uuid
-  FROM users
-  GROUP BY name, group_id
-);
+-- Migration 002: Remove old predictions table (replaced by group_standings + bracket_predictions)
+-- This migration is for existing databases that have the old schema
 
--- Now create the UNIQUE constraint
-ALTER TABLE users ADD CONSTRAINT uq_users_name_group UNIQUE (name, group_id);
+-- Drop old tables if they exist
+DROP TABLE IF EXISTS predictions CASCADE;
+DROP TABLE IF EXISTS scores CASCADE;
+DROP TABLE IF EXISTS user_stats CASCADE;
+DROP TABLE IF EXISTS point_rules CASCADE;
+
+-- The new schema is in 001_initial_schema.sql

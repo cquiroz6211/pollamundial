@@ -11,7 +11,7 @@ const outfit = Outfit({
   variable: '--font-outfit',
 })
 
-export default async function Layout({
+export default function Layout({
   children,
 }: {
   children: React.ReactNode
